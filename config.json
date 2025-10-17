@@ -1,8 +1,11 @@
 {
     "template_path": "accept_button.png",
-    "threshhold": 0.5,
+    "threshold": 0.8,
     "retry_interval": 2,
     "max_retries": 10,
     "region": null,
-    "debug": true
+    "debug": false,
+    "enable_multiscale": true,
+    "start_hotkey": "ctrl+alt+-",
+    "stop_hotkey": "ctrl+alt+="
   }

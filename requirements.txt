@@ -3,5 +3,3 @@ numpy
 pyautogui
 keyboard
 Pillow
-plyer
-tkinter

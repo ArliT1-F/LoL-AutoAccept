@@ -216,7 +216,7 @@ To convert the Python script into an executable:
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile accept-button.py
+pyinstaller --onefile auto-accept.py
 ```
 
 This will generate an executable in the dist directory.
@@ -232,7 +232,8 @@ To create a macOS application:
 
 ```bash
 pip install py2app
-python accept-button py2app
+py2applet --make-setup auto-accept.py
+python setup.py py2app
 ```
 
 This creates an .app package.
@@ -259,14 +260,14 @@ ini
     Description=Auto Accept League of Legends
 
     [Service]
-    ExecStart=/usr/bin/python3 /path/to/accept-button.py
+    ExecStart=/usr/bin/python3 /path/to/auto-accept.py
     WorkingDirectory=/path/to/your/script/
     Restart=always
     User=your_username
 
     [Install]
     WantedBy=multi-user.target
-    Replace /path/to/accept-button.py with the actual path to your script, and your_username with your Linux username
+    Replace /path/to/auto-accept.py with the actual path to your script, and your_username with your Linux username
 ```
 Enable and Start the Service
 Enable the service to run on boot:
