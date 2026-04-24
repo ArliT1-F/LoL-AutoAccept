@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import pyautogui
-import time
 import logging
 import os
 import json
@@ -19,6 +18,28 @@ logging.basicConfig(filename='app.log', level=logging.INFO, format="%(asctime)s 
 is_running = False
 stop_event = threading.Event()
 config = {}
+hotkey_handles = {"start": None, "stop": None}
+
+
+def normalize_config(cfg, base_dir):
+    """Normalize config keys, defaults, and relative paths."""
+    threshold = cfg.get("threshold", cfg.get("threshhold", 0.8))
+    cfg["threshold"] = float(threshold)
+    cfg.pop("threshhold", None)
+
+    template_path = cfg.get("template_path", "accept_button.png")
+    if template_path and not os.path.isabs(template_path):
+        template_path = os.path.join(base_dir, template_path)
+    cfg["template_path"] = template_path
+
+    cfg["retry_interval"] = float(cfg.get("retry_interval", 2))
+    cfg["max_retries"] = int(cfg.get("max_retries", 10))
+    cfg["region"] = cfg.get("region", None)
+    cfg["debug"] = bool(cfg.get("debug", False))
+    cfg["enable_multiscale"] = bool(cfg.get("enable_multiscale", True))
+    cfg["start_hotkey"] = cfg.get("start_hotkey", "ctrl+alt+-")
+    cfg["stop_hotkey"] = cfg.get("stop_hotkey", "ctrl+alt+=")
+    return cfg
 
 def load_config(config_path=None):
     """Load configuration from JSON file."""
@@ -29,11 +50,10 @@ def load_config(config_path=None):
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
     with open(config_path, 'r') as f:
         cfg = json.load(f)
-    if 'threshold' not in cfg and 'threshhold' in cfg:
-        cfg['threshold'] = cfg['threshhold']
-    return cfg
+    config_dir = os.path.dirname(config_path)
+    return normalize_config(cfg, config_dir)
 
-def find_accept_button(template_path, threshhold=0.8, region=None, debug=False, enable_multiscale=True):
+def find_accept_button(template_path, threshold=0.8, region=None, debug=False, enable_multiscale=True):
     """Find and click the 'Accept' button with multi-scale matching."""
     try:
         screenshot = pyautogui.screenshot(region=region)
@@ -50,7 +70,7 @@ def find_accept_button(template_path, threshhold=0.8, region=None, debug=False, 
             return False
         
         best_match = None
-        best_val = threshhold
+        best_val = threshold
         best_scale = 1.0
         
         scales = [1.0]
@@ -104,7 +124,7 @@ def start_auto_accept():
     global is_running, config, stop_event
     retry_attempts = 0
     template_path = config['template_path']
-    threshhold = config.get('threshold', config.get('threshhold', 0.8))
+    threshold = config.get('threshold', 0.8)
     retry_interval = config['retry_interval']
     region = config.get('region', None)
     max_retries = config.get('max_retries', 10)
@@ -112,7 +132,7 @@ def start_auto_accept():
     enable_multiscale = config.get('enable_multiscale', True)
 
     while is_running and not stop_event.is_set():
-        if find_accept_button(template_path, threshhold, region, debug, enable_multiscale):
+        if find_accept_button(template_path, threshold, region, debug, enable_multiscale):
             retry_attempts = 0
             print("Accept button found and clicked!")
             if stop_event.wait(retry_interval):
@@ -120,8 +140,12 @@ def start_auto_accept():
         else:
             print("Accept button not found. Retrying...")
             retry_attempts += 1
-            if retry_attempts > max_retries:
-                logging.error("Max retries reached. Please check the application.")
+            if retry_attempts >= max_retries:
+                logging.error("Max retries reached. Stopping auto accept.")
+                print("Max retries reached. Stopping auto accept.")
+                is_running = False
+                stop_event.set()
+                break
 
             if stop_event.wait(min(10, retry_interval * retry_attempts)):
                 break
@@ -160,15 +184,21 @@ def stop_auto_accept_hotkey():
 
 def setup_hotkeys():
     """Setup the hotkeys for start and stop actions."""
+    global hotkey_handles
     start_hotkey = config.get('start_hotkey', 'ctrl+alt+-')
     stop_hotkey = config.get('stop_hotkey', 'ctrl+alt+=')
 
     try:
-        keyboard.add_hotkey(start_hotkey, start_auto_accept_hotkey)
-        keyboard.add_hotkey(stop_hotkey, stop_auto_accept_hotkey)
+        for handle in hotkey_handles.values():
+            if handle is not None:
+                keyboard.remove_hotkey(handle)
+
+        hotkey_handles["start"] = keyboard.add_hotkey(start_hotkey, start_auto_accept_hotkey)
+        hotkey_handles["stop"] = keyboard.add_hotkey(stop_hotkey, stop_auto_accept_hotkey)
         print(f"Hotkeys set: Start ({start_hotkey}), Stop ({stop_hotkey})")
         logging.info(f"Hotkeys configured: Start ({start_hotkey}), Stop ({stop_hotkey})")
     except Exception as e:
+        hotkey_handles = {"start": None, "stop": None}
         error_msg = f"Failed to setup hotkeys. You may need administrator/root permissions.\nError: {str(e)}"
         print(error_msg)
         logging.warning(f"Hotkey setup failed: {e}")
@@ -187,7 +217,7 @@ def create_gui():
 
     def start_button_pressed():
         try:
-            config['threshhold'] = float(threshhold_entry.get())
+            config['threshold'] = float(threshold_entry.get())
             config['retry_interval'] = float(retry_interval_entry.get())
             config['max_retries'] = int(max_retries_entry.get())
             setup_hotkeys()  # Setup hotkeys when starting
@@ -202,11 +232,11 @@ def create_gui():
     template_label = tk.Label(root, text="Template: Not Selected")
     template_label.pack(pady=5)
 
-    threshhold_label = tk.Label(root, text="Threshold (0-1):")
-    threshhold_label.pack(pady=5)
-    threshhold_entry = tk.Entry(root)
-    threshhold_entry.insert(0, str(config['threshhold']))
-    threshhold_entry.pack(pady=5)
+    threshold_label = tk.Label(root, text="Threshold (0-1):")
+    threshold_label.pack(pady=5)
+    threshold_entry = tk.Entry(root)
+    threshold_entry.insert(0, str(config['threshold']))
+    threshold_entry.pack(pady=5)
 
     retry_interval_label = tk.Label(root, text="Retry Interval (seconds):")
     retry_interval_label.pack(pady=5)
