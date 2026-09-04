@@ -32,13 +32,13 @@
         "accept_button_not_found": "Schaltfläche „Akzeptieren“ nicht gefunden. Erneuter Versuch...",
         "error": "Fehler",
         "max_retries_reached": "Maximale Wiederholungsversuche erreicht. Bitte prüfen Sie den Antrag."
-  },
-  "it": {
+    },
+    "it": {
     "start_message": "Accettazione automatica avviata",
       "stop_message": "Accettazione automatica interrotta",
       "accept_button_clicked": "Pulsante Accetta trovato e cliccato!",
       "accept_button_not_found": "Pulsante Accetta non trovato. Nuovo tentativo...",
       "error": "Errore",
       "max_retries_reached": "Numero massimo di tentativi raggiunto. Si prega di controllare l'applicazione."
-  }
+     }
 }
